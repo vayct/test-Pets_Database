@@ -15,6 +15,9 @@
  */
 package com.example.android.pets;
 
+import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
@@ -26,8 +29,10 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.Spinner;
+import android.widget.Toast;
 
 import com.example.android.pets.data.PetContract.PetEntry;
+import com.example.android.pets.data.PetDbHelper;
 
 /**
  * Allows user to create a new pet or edit an existing one.
@@ -52,6 +57,9 @@ public class EditorActivity extends AppCompatActivity {
      */
     private int mGender = 0;
 
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,6 +70,7 @@ public class EditorActivity extends AppCompatActivity {
         mBreedEditText = (EditText) findViewById(R.id.edit_pet_breed);
         mWeightEditText = (EditText) findViewById(R.id.edit_pet_weight);
         mGenderSpinner = (Spinner) findViewById(R.id.spinner_gender);
+
 
         setupSpinner();
     }
@@ -119,7 +128,13 @@ public class EditorActivity extends AppCompatActivity {
         switch (item.getItemId()) {
             // Respond to a click on the "Save" menu option
             case R.id.action_save:
-                // Do nothing for now
+
+                //save the pet into the database
+                insertPet();
+                //exit the activity
+                finish();
+
+
                 return true;
             // Respond to a click on the "Delete" menu option
             case R.id.action_delete:
@@ -133,4 +148,30 @@ public class EditorActivity extends AppCompatActivity {
         }
         return super.onOptionsItemSelected(item);
     }
+
+    /**
+     * Get user input from editor and save new pet into database
+     */
+    private void insertPet(){
+
+        String nameString = mNameEditText.getText().toString().trim(); //eliminate extra leading or trailing whitespaces
+        String breedString = mBreedEditText.getText().toString().trim();
+        int weightInt = Integer.parseInt( mWeightEditText.getText().toString().trim());
+
+        ContentValues values = new ContentValues();
+        values.put(PetEntry.COLUMN_PET_NAME, nameString);
+        values.put(PetEntry.COLUMN_PET_BREED, breedString);
+        values.put(PetEntry.COLUMN_PET_GENDER, mGender);
+        values.put(PetEntry.COLUMN_PET_WEIGHT, weightInt);
+
+        //Insert a new pet into the provider, returning the content URI for the new pet
+        Uri newURI = getContentResolver().insert(PetEntry.CONTENT_URI, values);
+
+        if(newURI == null)
+            Toast.makeText(this, getString(R.string.editor_insert_pet_failed), Toast.LENGTH_SHORT).show();
+        else
+            Toast.makeText(this, getString(R.string.editor_insert_pet_successful), Toast.LENGTH_SHORT).show();
+
+    }
+
 }
