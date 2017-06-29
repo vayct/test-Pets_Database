@@ -1,7 +1,9 @@
 package com.example.android.pets;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,68 +18,109 @@ import com.example.android.pets.data.PetContract.PetEntry;
  * that uses a {@link Cursor} of pet data as its data source. This adapter knows
  * how to create list items for each row of pet data in the {@link Cursor}.
  */
-public class PetCursorAdapter extends CursorAdapter {
+public class PetCursorAdapter extends RecyclerView.Adapter<PetCursorAdapter.PetViewHolder> {
 
-    /**
-     * Constructs a new {@link PetCursorAdapter}.
-     *
-     * @param context The context
-     * @param c       The cursor from which to get the data.
-     */
-    public PetCursorAdapter(Context context, Cursor c) {
-        super(context, c, 0 /* flags */);
+    private Cursor mCursor;
+    private Context mContext;
+
+    final private ListItemClickListener mOnClickListener;
+
+    public interface ListItemClickListener{
+        void onClickListener(int index);
     }
 
-    /**
-     * Makes a new blank list item view. No data is set (or bound) to the views yet.
-     *
-     * @param context app context
-     * @param cursor  The cursor from which to get the data. The cursor is already
-     *                moved to the correct position.
-     * @param parent  The parent to which the new view is attached to
-     * @return the newly created list item view.
-     */
-    @Override
-    public View newView(Context context, Cursor cursor, ViewGroup parent) {
-        // Inflate a list item view using the layout specified in list_item.xml
-        return LayoutInflater.from(context).inflate(R.layout.list_item, parent, false);
+    public PetCursorAdapter(Context context, Cursor cursor, ListItemClickListener listener) {
+        mCursor = cursor;
+        mContext = context;
+        mOnClickListener = listener;
+
     }
 
-    /**
-     * This method binds the pet data (in the current row pointed to by cursor) to the given
-     * list item layout. For example, the name for the current pet can be set on the name TextView
-     * in the list item layout.
-     *
-     * @param view    Existing view, returned earlier by newView() method
-     * @param context app context
-     * @param cursor  The cursor from which to get the data. The cursor is already moved to the
-     *                correct row.
-     */
+
+
+
+
     @Override
-    public void bindView(View view, Context context, Cursor cursor) {
-        // Find individual views that we want to modify in the list item layout
-        TextView nameTextView = (TextView) view.findViewById(R.id.name);
-        TextView summaryTextView = (TextView) view.findViewById(R.id.summary);
+    public PetViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        Context context = parent.getContext();
+        int layoutIdForListItem = R.layout.list_item;
+        LayoutInflater inflater = LayoutInflater.from(context);
+        View view = inflater.inflate(layoutIdForListItem, parent, false);
 
-        // Find the columns of pet attributes that we're interested in
-        int nameColumnIndex = cursor.getColumnIndex(PetEntry.COLUMN_PET_NAME);
-        int breedColumnIndex = cursor.getColumnIndex(PetEntry.COLUMN_PET_BREED);
+        return new PetViewHolder(view);
+    }
 
-        // Read the pet attributes from the Cursor for the current pet
-        String petName = cursor.getString(nameColumnIndex);
-        String petBreed = cursor.getString(breedColumnIndex);
+    @Override
+    public void onBindViewHolder(PetViewHolder holder, int position) {
+
+        if(!mCursor.moveToPosition(position))
+            return;
+
+        // Update the view holder with the information needed to display
+        String name = mCursor.getString(mCursor.getColumnIndex(PetEntry.COLUMN_PET_NAME));
+        String summary = mCursor.getString(mCursor.getColumnIndex(PetEntry.COLUMN_PET_BREED));
 
 
+        long id = mCursor.getLong(mCursor.getColumnIndexOrThrow(PetEntry._ID));
 
 
-        // If the pet breed is empty string or null, then use some default text
-        // that says "Unknown breed", so the TextView isn't blank.
-        if (TextUtils.isEmpty(petBreed)) {
-            petBreed = context.getString(R.string.unknown_breed);
+        if (TextUtils.isEmpty(summary)) {
+             summary = mContext.getString(R.string.unknown_breed);
         }
 
-        // Update the TextViews with the attributes for the current pet
-        nameTextView.setText(petName);
-        summaryTextView.setText(petBreed);
+        // Display the guest name
+        holder.nameTextView.setText(name);
+        // Display the party count
+        holder.summaryTextView.setText(summary);
+        // TODO (7) Set the tag of the itemview in the holder to the id
+        holder.itemView.setTag(id);
+
+    }
+
+    @Override
+    public int getItemCount() {
+        if(mCursor != null)
+            return mCursor.getCount();
+        return 0;
+    }
+
+
+
+
+
+    public void swapCursor(Cursor cursor) {
+        if (mCursor != null) mCursor.close();
+        mCursor = cursor;
+        if (cursor != null) {
+            // Force the RecyclerView to refresh
+            this.notifyDataSetChanged();
+        }
+    }
+
+
+
+
+
+
+    class PetViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener{
+
+        // Will display the guest name
+        TextView nameTextView;
+        // Will display the party size number
+        TextView summaryTextView;
+
+
+        public PetViewHolder(View itemView) {
+            super(itemView);
+            nameTextView = (TextView) itemView.findViewById(R.id.name);
+            summaryTextView = (TextView) itemView.findViewById(R.id.summary);
+            itemView.setOnClickListener(this);
+        }
+
+        @Override
+        public void onClick(View v) {
+            int clickedPosition =getAdapterPosition();
+            mOnClickListener.onClickListener(clickedPosition);
+        }
     }
 }

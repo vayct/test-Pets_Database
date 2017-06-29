@@ -28,6 +28,9 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -40,13 +43,18 @@ import com.example.android.pets.data.PetContract.PetEntry;
 
 import java.net.URI;
 
+import static android.R.attr.id;
+
 /**
  * Displays list of pets that were entered and stored in the app.
  */
-public class CatalogActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor> {
+public class CatalogActivity extends AppCompatActivity implements
+        LoaderManager.LoaderCallbacks<Cursor>,PetCursorAdapter.ListItemClickListener {
 
 
     private PetCursorAdapter mPetCursorAdapter;
+
+    private RecyclerView petRecyclerView;
 
     private static final int PET_LOADER = 0;
 
@@ -72,45 +80,79 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
         // and pass the context, which is the current activity.
 
         // Find the ListView which will be populated with the pet data
-        ListView petListView = (ListView) findViewById(R.id.list_view);
+        petRecyclerView = (RecyclerView) findViewById(R.id.list_view);
+
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        petRecyclerView.setLayoutManager(layoutManager);
+        petRecyclerView.setHasFixedSize(true);
+
+        mPetCursorAdapter = new PetCursorAdapter(this, null, this);
+        petRecyclerView.setAdapter(mPetCursorAdapter);
 
         // Find and set empty view on the ListView, so that it only shows when the list has 0 items.
-        View emptyView = findViewById(R.id.empty_view);
-        petListView.setEmptyView(emptyView);
+
 
 
         //Setup the Adapter to create a list item for each row of pet data in the Cursor
         //There is no pet yet so pass null for the cursor
-        mPetCursorAdapter = new PetCursorAdapter(this,null);
-        petListView.setAdapter(mPetCursorAdapter);
+
 
         //set up the click listener
-        petListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> listView, View view, int position, long id) {
 
-
-
-                //Create a new intent to go to EditorActivity
-                Intent intent = new Intent(CatalogActivity.this, EditorActivity.class);
-
-                //Form the content URI that represents the specific pet that was clicked on
-                //by appending the "id" (passed as input to this method) onto the PetEntry.CONTENT_URI
-                Uri petUri = ContentUris.withAppendedId(PetEntry.CONTENT_URI, id);
-
-                //set the URI on the data field of the intent
-                intent.setData(petUri);
-
-                //Launch the activity to display the current pet
-                startActivity(intent);
-            }
-        });
 
 
         //initialize the loader
         getLoaderManager().initLoader(PET_LOADER,null, this);
 
+        new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+
+            // COMPLETED (4) Override onMove and simply return false inside
+            @Override
+            public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
+                //do nothing, we only care about swiping
+                return false;
+            }
+
+            // COMPLETED (5) Override onSwiped
+            @Override
+            public void onSwiped(RecyclerView.ViewHolder viewHolder, int swipeDir) {
+                // COMPLETED (8) Inside, get the viewHolder's itemView's tag and store in a long variable id
+                //get the id of the item being swiped
+                long id = (long) viewHolder.itemView.getTag();
+                // COMPLETED (9) call removeGuest and pass through that id
+                //remove from DB
+                Uri petUri = ContentUris.withAppendedId(PetEntry.CONTENT_URI, id);
+                if (petUri != null) {
+                    // Call the ContentResolver to delete the pet at the given content URI.
+                    // Pass in null for the selection and selection args because the mCurrentPetUri
+                    // content URI already identifies the pet that we want.
+                    int rowsDeleted = getContentResolver().delete(petUri, null, null);
+
+                    // Show a toast message depending on whether or not the delete was successful.
+                    if (rowsDeleted == 0) {
+                        // If no rows were deleted, then there was an error with the delete.
+                        Toast.makeText(CatalogActivity.this, getString(R.string.editor_delete_pet_failed),
+                                Toast.LENGTH_SHORT).show();
+                    } else {
+                        // Otherwise, the delete was successful and we can display a toast.
+                        Toast.makeText(CatalogActivity.this, getString(R.string.editor_delete_pet_successful),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+            }
+
+            //COMPLETED (11) attach the ItemTouchHelper to the waitlistRecyclerView
+        }).attachToRecyclerView(petRecyclerView);
+
+
     }
+
+
+
+
+
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -223,4 +265,26 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
         AlertDialog alertDialog = builder.create();
         alertDialog.show();
     }
+
+    @Override
+    public void onClickListener(int index) {
+        //Create a new intent to go to EditorActivity
+        Intent intent = new Intent(CatalogActivity.this, EditorActivity.class);
+
+        //Form the content URI that represents the specific pet that was clicked on
+        //by appending the "id" (passed as input to this method) onto the PetEntry.CONTENT_URI
+        Uri petUri = ContentUris.withAppendedId(PetEntry.CONTENT_URI, index);
+
+        //set the URI on the data field of the intent
+        intent.setData(petUri);
+
+        //Launch the activity to display the current pet
+        startActivity(intent);
+
+    }
+
+
+
+
 }
+
